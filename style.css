@@ -1,4 +1,241 @@
 /* Custom properties matching Synapse Corporate Identity */
+/* --- Premium Preloader --- */
+#preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  /* Fondo oscuro inicial */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 1.2s cubic-bezier(0.77, 0, 0.175, 1), visibility 1.2s;
+}
+
+.preloader-spinner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  /* Spinner blanco sobre fondo oscuro */
+  animation: loadingBar 1.8s infinite ease-in-out;
+}
+
+.preloader-text {
+  font-size: 14px;
+  color: #666;
+  /* Texto más discreto */
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+#preloader.fade-out {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.preloader-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.preloader-logo {
+  width: 200px;
+  height: auto;
+  animation: logoPulse 2s infinite ease-in-out;
+}
+
+.preloader-spinner {
+  width: 60px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.preloader-spinner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--synapse-pink);
+  animation: loadingBar 1.8s infinite ease-in-out;
+}
+
+.preloader-text {
+  font-size: 14px;
+  color: #999;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-top: 10px;
+  animation: fadeInText 2s forwards;
+}
+
+@keyframes logoPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes loadingBar {
+  0% {
+    left: -100%;
+  }
+
+  50% {
+    left: 0;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes fadeInText {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Intro CTA (Centrado en espacio restante) --- */
+#intro-cta {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 420px;
+  /* Alineado con el final de la solapa desplegada */
+  height: 100%;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease 0.5s;
+}
+
+#intro-cta.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.intro-cta-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+}
+
+.play-pulse-btn {
+  width: 120px;
+  height: 120px;
+  background: var(--synapse-pink);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 0 0 rgba(186, 45, 116, 0.6);
+  animation: introPlayPulse 2s infinite;
+  transition: transform 0.3s ease;
+}
+
+.play-pulse-btn:hover {
+  transform: scale(1.1);
+}
+
+.play-pulse-btn svg {
+  width: 60px;
+  height: 60px;
+  fill: #fff;
+  margin-left: 8px;
+}
+
+.intro-cta-title {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  letter-spacing: 1px;
+}
+
+@keyframes introPlayPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(186, 45, 116, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 30px rgba(186, 45, 116, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(186, 45, 116, 0);
+  }
+}
+
+/* Responsive CTA */
+@media (max-width: 1024px) and (orientation: landscape) {
+  #intro-cta {
+    left: 450px;
+    /* Ajuste para landscape tablet/móvil */
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  #intro-cta {
+    left: 0;
+    bottom: 300px;
+    /* Eleva el botón para que no se solape con la solapa inferior */
+    height: calc(100% - 300px);
+  }
+
+  .intro-cta-title {
+    font-size: 22px;
+  }
+
+  .play-pulse-btn {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  #intro-cta {
+    bottom: 250px;
+    height: calc(100% - 250px);
+  }
+}
+
 :root {
   --synapse-pink: #BA2D74;
   /* Matches design color from image */
@@ -56,6 +293,9 @@ body {
   width: 100%;
   height: 100%;
   opacity: 0;
+  background: #000;
+  overflow: hidden;
+  /* Evitar que el desenfoque se salga */
   /* Smooth crossfade and slight zoom out effect for premium feel */
   transition: opacity 1s ease-in-out, transform 1.2s ease-out;
   transform: scale(1.03);
@@ -69,18 +309,29 @@ body {
   z-index: 2;
 }
 
-.slide video {
+.slide .ambient-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Cambiado de contain para llenar más pantalla en móviles */
+  filter: blur(80px) brightness(0.7);
+  /* Mayor desenfoque para suavizar el pixelado del canvas */
+  opacity: 0.8;
+  z-index: 1;
+  pointer-events: none;
 }
 
-@media (min-AspectRatio: 16/9) {
-  .slide video {
-    object-fit: contain;
-    /* En pantallas anchas mantenemos el formato original */
-  }
+.slide video.video-main {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Asegura que el vídeo se vea completo sin cortes */
+  z-index: 2;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+  /* Sombra para separar del fondo */
 }
 
 /* Glass Overlay Container - vertical sidebar on the left */
@@ -149,7 +400,32 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  animation: slideInLeft 1s cubic-bezier(0.34, 1.56, 0.64, 1) backwards 0.3s;
+  animation: slideInLeft 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) backwards 0.8s;
+}
+
+/* Indicador de acción (CTA) para el botón play inicial */
+#play-btn.cta-pulse {
+  animation: ctaPulse 2s infinite;
+  background: var(--synapse-pink);
+  color: #fff;
+}
+
+#play-btn.cta-pulse svg {
+  fill: #fff;
+}
+
+@keyframes ctaPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(186, 45, 116, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 15px rgba(186, 45, 116, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(186, 45, 116, 0);
+  }
 }
 
 @keyframes slideInLeft {

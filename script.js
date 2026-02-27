@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
-    const playlistBtn = document.getElementById('playlist-btn');
     const muteBtn = document.getElementById('mute-btn');
 
     const iconPlay = document.getElementById('icon-play');
@@ -46,17 +45,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const slide = document.createElement('div');
             slide.className = `slide ${index === 0 ? 'active' : ''}`;
 
+            // Canvas for Ambient background (blurred)
+            const canvas = document.createElement('canvas');
+            canvas.className = 'ambient-canvas';
+            const ctx = canvas.getContext('2d', { alpha: false });
+
+            // Main video
             const vidEl = document.createElement('video');
+            vidEl.className = 'video-main';
             vidEl.src = video.src;
-            vidEl.loop = false; // We move to next on end
+            vidEl.loop = false;
             vidEl.muted = isMuted;
             vidEl.playsInline = true;
-            // Preload only first two for bandwidth mapping, others on demand
             vidEl.preload = index < 2 ? 'auto' : 'metadata';
 
+            slide.appendChild(canvas);
             slide.appendChild(vidEl);
             sliderContainer.appendChild(slide);
             videoElements.push(vidEl);
+
+            // Optimization: Update canvas only when playing
+            let animationId;
+            const updateCanvas = () => {
+                if (vidEl.paused || vidEl.ended) return;
+                // Draw at very low res for maximum performance
+                ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height);
+                animationId = requestAnimationFrame(updateCanvas);
+            };
+
+            vidEl.addEventListener('play', () => {
+                canvas.width = 32; canvas.height = 32; // Small size = fast draw
+                updateCanvas();
+            });
+            vidEl.addEventListener('pause', () => cancelAnimationFrame(animationId));
+            vidEl.addEventListener('seeked', () => ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height));
 
             // Create playlist item
             const plItem = document.createElement('div');
@@ -100,21 +122,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateInfo();
 
-        // Autoplay main video
-        const firstVideo = videoElements[0];
-        const playPromise = firstVideo.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                glassOverlay.classList.add('playing');
-                iconPlay.style.display = 'none';
-                iconPause.style.display = 'block';
-            }).catch(e => {
-                // Autoplay was prevented by browser
-                console.log("Autoplay prevented:", e.message);
-                iconPause.style.display = 'none';
-                iconPlay.style.display = 'block';
-            });
-        }
+        // Simplified Intro Animation Sequence
+        window.addEventListener('load', () => {
+            const preloader = document.getElementById('preloader');
+            const introCta = document.getElementById('intro-cta');
+            const mainPlayCta = document.getElementById('main-play-cta');
+
+            // 1. Initial logo showcase
+            setTimeout(() => {
+                // Fade out preloader
+                if (preloader) preloader.classList.add('fade-out');
+
+                // 2. Unfold Sidebar (remove 'playing' class)
+                glassOverlay.classList.remove('playing');
+
+                // 3. Show Intro CTA (Pulsing Play Button + Text)
+                setTimeout(() => {
+                    if (introCta) introCta.classList.add('show');
+                }, 800);
+            }, 1800);
+
+            // Handle Intro CTA Click
+            if (mainPlayCta) {
+                mainPlayCta.addEventListener('click', () => {
+                    // Hide CTA
+                    introCta.classList.remove('show');
+                    setTimeout(() => introCta.style.display = 'none', 1000);
+
+                    // Fold Sidebar and Start Video
+                    glassOverlay.classList.add('playing');
+
+                    // Start Video
+                    const firstVideo = videoElements[currentIndex];
+                    firstVideo.play().then(() => {
+                        iconPlay.style.display = 'none';
+                        iconPause.style.display = 'block';
+                    }).catch(e => console.log("Play failed on intro click:", e));
+                });
+            }
+        });
+
+        // Initial State
+        iconPause.style.display = 'none';
+        iconPlay.style.display = 'block';
     }
 
     // Main navigation function with crossfade
@@ -197,14 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
             glassOverlay.classList.remove('playing');
             iconPause.style.display = 'none';
             iconPlay.style.display = 'block';
-        }
-    });
-
-    // Playlist button now scrolls to current video if clicked
-    playlistBtn.addEventListener('click', () => {
-        const activeItem = document.querySelector('.playlist-item.active');
-        if (activeItem) {
-            activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 

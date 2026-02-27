@@ -63,7 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
             plItem.className = `playlist-item ${index === 0 ? 'active' : ''}`;
             plItem.innerHTML = `<span class="playlist-item-index">${String(index + 1).padStart(2, '0')}</span> ${video.title}`;
             plItem.addEventListener('click', () => {
-                if (!isTransitioning) goToVideo(index);
+                if (!isTransitioning) {
+                    glassOverlay.classList.add('playing'); // Ocultar lengüeta al elegir vídeo
+                    goToVideo(index);
+                }
             });
             playlistContainer.appendChild(plItem);
 
@@ -102,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const playPromise = firstVideo.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
+                glassOverlay.classList.add('playing');
                 iconPlay.style.display = 'none';
                 iconPause.style.display = 'block';
             }).catch(e => {
@@ -118,32 +122,39 @@ document.addEventListener('DOMContentLoaded', () => {
         if (index === currentIndex || isTransitioning) return;
         isTransitioning = true;
 
+        // 1. Update state immediately to catch events correctly
         const currentVideoEl = videoElements[currentIndex];
         const nextVideoEl = videoElements[index];
+        const oldIndex = currentIndex;
+        currentIndex = index;
 
-        // 1. Play next video immediately but in background (z-index handle via CSS)
+        // 2. Force overlay to hide immediately when starting transition
+        glassOverlay.classList.add('playing');
+
+        // 3. Play next video
         nextVideoEl.currentTime = 0;
         nextVideoEl.muted = isMuted;
         const playPromise = nextVideoEl.play();
         if (playPromise !== undefined) {
-            playPromise.catch(e => console.log('Autoplay prevented on next video', e));
+            playPromise.then(() => {
+                iconPlay.style.display = 'none';
+                iconPause.style.display = 'block';
+            }).catch(e => console.log('Autoplay prevented on next video', e));
         }
 
-        // 2. CSS Animations for slides
+        // 4. CSS Animations for slides
         const slides = document.querySelectorAll('.slide');
-        slides[currentIndex].classList.remove('active');
+        slides[oldIndex].classList.remove('active');
         slides[index].classList.add('active');
 
-        // 3. Update Playlist active state
+        // 5. Update Playlist active state
         const items = document.querySelectorAll('.playlist-item');
-        items[currentIndex].classList.remove('active');
+        items[oldIndex].classList.remove('active');
         items[index].classList.add('active');
 
         // Scroll playlist to bring item into view
         items[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        // Update state
-        currentIndex = index;
         updateInfo();
         progressFill.style.width = `0%`; // Reset progress visually
 
@@ -178,10 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const vid = videoElements[currentIndex];
         if (vid.paused) {
             vid.play();
+            glassOverlay.classList.add('playing');
             iconPlay.style.display = 'none';
             iconPause.style.display = 'block';
         } else {
             vid.pause();
+            glassOverlay.classList.remove('playing');
             iconPause.style.display = 'none';
             iconPlay.style.display = 'block';
         }
@@ -240,6 +253,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start everything
     init();
+
+    // Toggle Sidebar via Handle
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    sidebarToggle.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evitar que el click se propague al panel
+        glassOverlay.classList.toggle('playing');
+        glassOverlay.style.transform = ''; // Reset transform si venía de un arrastre
+    });
+
+    // --- Touch & Swipe Interactions for Sidebar UX ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isDragging = false;
+    let startTranslate = 0;
+
+    glassOverlay.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isDragging = true;
+
+        // Desactivar transiciones durante el arrastre para respuesta inmediata
+        glassOverlay.style.transition = 'none';
+
+        // Obtener la posición actual
+        const style = window.getComputedStyle(glassOverlay);
+        const matrix = new WebKitCSSMatrix(style.transform);
+        startTranslate = matrix.m41; // Valor de translateX
+    }, { passive: true });
+
+    glassOverlay.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+
+        const deltaX = e.touches[0].clientX - touchStartX;
+        const deltaY = e.touches[0].clientY - touchStartY;
+
+        // Priorizar scroll vertical sobre horizontal si es muy pronunciado
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) return;
+
+        let newTranslate = startTranslate + deltaX;
+
+        // Limitar el arrastre para que no se salga de los bordes
+        if (newTranslate > 0) newTranslate = newTranslate * 0.2; // Efecto goma
+
+        glassOverlay.style.transform = `translateX(${newTranslate}px)`;
+    }, { passive: true });
+
+    glassOverlay.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const deltaX = touchEndX - touchStartX;
+
+        // Restaurar transiciones
+        glassOverlay.style.transition = '';
+
+        // Lógica de "Snap" profesional
+        const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+
+        if (Math.abs(deltaX) > 50) { // Si el swipe es significativo
+            if (deltaX > 0) {
+                // Hacia la derecha: Abrir
+                glassOverlay.classList.remove('playing');
+                glassOverlay.style.transform = '';
+            } else {
+                // Hacia la izquierda: Cerrar
+                glassOverlay.classList.add('playing');
+                glassOverlay.style.transform = '';
+            }
+        } else {
+            // Si el movimiento es pequeño, volver al estado original según la clase actual
+            glassOverlay.style.transform = '';
+        }
+    });
 
     // Fade-in animation for title on update
     titleEl.style.transition = 'opacity 0.3s ease';

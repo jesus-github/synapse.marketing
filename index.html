@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.0.2">
+    <link rel="stylesheet" href="style.css?v=1.1.9">
 </head>
 
 <body>
@@ -81,10 +81,28 @@
             <div id="playlist-container" class="playlist-expanded">
                 <!-- Items injected via JS -->
             </div>
+
+            <!-- Sidebar Toggle Handle -->
+            <button id="sidebar-toggle" class="sidebar-handle" title="Ocultar / Mostrar">
+                <svg class="handle-arrow" viewBox="0 0 24 24">
+                    <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+                </svg>
+            </button>
         </div>
     </div>
 
-    <script src="script.js?v=1.0.2"></script>
+    <!-- Orientation Warning Overlay -->
+    <div class="orientation-warning">
+        <div class="warning-content">
+            <svg class="phone-icon" viewBox="0 0 24 24">
+                <path
+                    d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z" />
+            </svg>
+            <p>Por favor, rota tu dispositivo para una mejor experiencia</p>
+        </div>
+    </div>
+
+    <script src="script.js?v=1.1.9"></script>
 </body>
 
 </html>

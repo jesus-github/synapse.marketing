@@ -72,7 +72,15 @@ body {
 .slide video {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  /* Cambiado de contain para llenar más pantalla en móviles */
+}
+
+@media (min-AspectRatio: 16/9) {
+  .slide video {
+    object-fit: contain;
+    /* En pantallas anchas mantenemos el formato original */
+  }
 }
 
 /* Glass Overlay Container - vertical sidebar on the left */
@@ -92,14 +100,32 @@ body {
 
 /* Ocultar parcialmente mientras se reproduce el vídeo */
 .glass-overlay.playing {
-  opacity: 0.35;
-  transform: translateX(-332.5px);
-  /* Asoman 87.5px (un 75% más que los 50px anteriores) */
+  opacity: 0.65;
+  transform: translateX(-380px);
+  /* Asoman solo 40px */
 }
 
-.glass-overlay.playing:hover {
-  opacity: 1;
-  transform: translateX(0);
+.glass-overlay.playing #video-description {
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  transition: all 0.4s ease;
+}
+
+/* Solo aplicamos hover en dispositivos que lo soporten (Desktop), 
+   en móviles el toque no debe dejar la lengüeta abierta */
+@media (hover: hover) {
+  .glass-overlay.playing:hover {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .glass-overlay.playing:hover #video-description {
+    opacity: 1;
+    max-height: 200px;
+    margin-top: 10px;
+  }
 }
 
 
@@ -138,29 +164,75 @@ body {
   }
 }
 
-/* Acento sutil en el borde derecho para identificar la lengüeta solo cuando está oculta */
-.glass-card::after {
-  content: '';
+/* Botón sutil y elegante para plegar/desplegar la lengüeta */
+.sidebar-handle {
   position: absolute;
-  top: 0;
+  top: 50%;
   right: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--synapse-pink);
-  opacity: 0;
-  /* Oculto por defecto cuando el repro está fuera */
-  transition: opacity 0.4s ease, box-shadow 0.4s ease;
-  border-radius: 0 20px 20px 0;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 80px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  z-index: 10;
+  transition: all 0.3s ease;
 }
 
-.glass-overlay.playing .glass-card::after {
-  opacity: 0.7;
-  box-shadow: -2px 0 12px var(--synapse-pink);
+.handle-arrow {
+  width: 48px;
+  /* Doble de grande */
+  height: 48px;
+  fill: var(--synapse-pink);
+  opacity: 0.6;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 0 8px rgba(255, 30, 86, 0.3));
 }
 
-.glass-overlay.playing:hover .glass-card::after {
-  opacity: 0;
+.sidebar-handle:hover .handle-arrow {
+  opacity: 1;
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 8px rgba(255, 30, 86, 0.5));
 }
+
+/* Rotación de la flecha: Por defecto (abierto) mira a la izquierda. 
+   Cuando está oculto (.playing), mira a la derecha para indicar 'abrir' */
+.glass-overlay.playing .handle-arrow {
+  transform: rotate(180deg);
+  opacity: 0.8;
+  animation: bounceArrow 2s infinite ease-in-out;
+}
+
+.glass-overlay.playing:hover .handle-arrow {
+  transform: rotate(0deg) scale(1.1);
+  /* Apunta a la izquierda cuando se despliega por hover */
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes bounceArrow {
+
+  0%,
+  100% {
+    transform: rotate(180deg) translateX(0);
+  }
+
+  50% {
+    transform: rotate(180deg) translateX(-5px);
+  }
+}
+
+/* Ocultamos el tirador en portrait ya que el despliegue es vertical */
+@media (max-width: 900px) and (orientation: portrait) {
+  .sidebar-handle {
+    display: none;
+  }
+}
+
 
 .glass-card h1 {
   font-size: 32px;
@@ -316,7 +388,109 @@ body {
 }
 
 /* Responsive adjustments */
-@media (max-width: 900px) {
+@media (max-width: 1024px) and (orientation: landscape) {
+  .glass-overlay {
+    top: 10px;
+    bottom: 10px;
+    width: 96vw;
+    /* Casi todo el ancho de pantalla */
+    max-width: 900px;
+    left: -200px;
+    /* Buffer de rebote */
+    transform: translateX(0);
+  }
+
+  .glass-overlay.playing {
+    transform: translateX(calc(-100% + 230px));
+    /* Deja solo 30px visibles */
+  }
+
+  .glass-card {
+    padding: 15px 25px 15px 225px;
+    /* 25px padding real + 200px buffer */
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    /* Dos columnas: Izquierda un poco más ancha */
+    grid-template-rows: auto auto 1fr auto auto;
+    column-gap: 30px;
+    row-gap: 0;
+    align-items: start;
+  }
+
+  /* Columna Izquierda: Organización de elementos */
+  .brand-container {
+    grid-column: 1;
+    grid-row: 1;
+    margin-bottom: 5px;
+  }
+
+  .index-badge {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+
+  #video-title {
+    grid-column: 1;
+    grid-row: 3;
+    font-size: 20px;
+    margin-bottom: 0;
+    align-self: center;
+  }
+
+  #video-description {
+    display: none;
+  }
+
+  /* Ocultar descripción para maximizar espacio vertical */
+
+  .player-controls {
+    grid-column: 1;
+    grid-row: 4;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    justify-content: flex-start;
+  }
+
+  .progress-bar-container {
+    grid-column: 1;
+    grid-row: 5;
+    margin-top: 10px !important;
+  }
+
+  /* Columna Derecha: Playlist */
+  #playlist-container {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+    /* Ocupa desde el logo hasta la barra de progreso */
+    margin-top: 0;
+    height: 100%;
+    border-left: 1px solid rgba(0, 0, 0, 0.08);
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .playlist-expanded {
+    max-height: calc(100vh - 60px);
+    /* Ajuste dinámico según altura pantalla */
+    padding-right: 5px;
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
   .glass-overlay {
     top: auto;
     bottom: 30px;
@@ -324,45 +498,107 @@ body {
     right: 20px;
     width: auto;
     height: auto;
+    transform: none;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease;
+  }
+
+  .glass-overlay.playing {
+    transform: translateY(calc(100% - 60px));
+    /* En vertical asoma por abajo de forma sutil */
+    opacity: 0.8;
+  }
+
+  @media (hover: hover) {
+    .glass-overlay.playing:hover {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   .glass-card {
     height: auto;
     padding: 24px;
     max-width: 100%;
+    border-radius: 20px;
+    border-left: 1px solid var(--glass-border);
   }
 
   .playlist-expanded {
-    max-height: 200px;
+    max-height: 180px;
   }
 }
 
 @media (max-width: 600px) {
-  .glass-menu {
-    height: 70px;
-    padding: 0 20px;
-  }
-
-  .logo-synapse {
-    font-size: 22px;
-  }
-
-  .logo-smart {
-    font-size: 12px;
-  }
-
-  .glass-overlay {
-    bottom: 20px;
-    left: 20px;
-    right: 20px;
-    width: auto;
-  }
-
-  .glass-card h1 {
-    font-size: 24px;
-  }
-
   .glass-card p {
     display: none;
+  }
+}
+
+/* --- Orientation Warning System --- */
+.orientation-warning {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: #fff;
+  text-align: center;
+  padding: 40px;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.warning-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.phone-icon {
+  width: 60px;
+  height: 60px;
+  fill: var(--synapse-pink);
+  animation: rotatePhone 2.5s infinite ease-in-out;
+}
+
+.orientation-warning p {
+  font-size: 18px;
+  font-weight: 500;
+  color: #fff;
+  max-width: 250px;
+  line-height: 1.4;
+}
+
+@keyframes rotatePhone {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  35% {
+    transform: rotate(-90deg);
+  }
+
+  65% {
+    transform: rotate(-90deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Solo se activa en dispositivos móviles en VERTICAL */
+@media (max-width: 1024px) and (orientation: portrait) {
+  .orientation-warning {
+    visibility: visible;
+    opacity: 1;
   }
 }

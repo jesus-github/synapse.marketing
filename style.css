@@ -80,25 +80,29 @@ body {
   position: absolute;
   top: 40px;
   bottom: 40px;
-  left: 40px;
+  left: -200px;
+  /* Buffer de seguridad para el rebote */
   z-index: 10;
   display: flex;
   flex-direction: column;
-  width: 320px;
-  /* Más estrecho */
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  width: 620px;
+  /* 420px útiles + 200px buffer */
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Ocultar parcialmente mientras se reproduce el vídeo */
 .glass-overlay.playing {
-  opacity: 0.15;
-  transform: translateX(-20px);
+  opacity: 0.35;
+  transform: translateX(-332.5px);
+  /* Asoman 87.5px (un 75% más que los 50px anteriores) */
 }
 
 .glass-overlay.playing:hover {
   opacity: 1;
   transform: translateX(0);
 }
+
+
 
 /* Specific Glass Design requested by user:
    "Cristal extra-claro con títulos negros y texto Ink Black, sombra gris sutil." */
@@ -107,28 +111,55 @@ body {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--glass-border);
-  border-radius: 20px;
+  border-left: none;
+  /* Pegado al borde para efecto lengüeta */
+  border-radius: 0 20px 20px 0;
   box-shadow: var(--glass-shadow);
+  padding: 30px 30px 30px 230px;
+  /* 30px padding original + 200px buffer */
 }
 
 .glass-card {
-  padding: 30px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  animation: slideInLeft 0.8s ease backwards 0.3s;
+  animation: slideInLeft 1s cubic-bezier(0.34, 1.56, 0.64, 1) backwards 0.3s;
 }
 
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translateX(-620px);
   }
 
   to {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Acento sutil en el borde derecho para identificar la lengüeta solo cuando está oculta */
+.glass-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--synapse-pink);
+  opacity: 0;
+  /* Oculto por defecto cuando el repro está fuera */
+  transition: opacity 0.4s ease, box-shadow 0.4s ease;
+  border-radius: 0 20px 20px 0;
+}
+
+.glass-overlay.playing .glass-card::after {
+  opacity: 0.7;
+  box-shadow: -2px 0 12px var(--synapse-pink);
+}
+
+.glass-overlay.playing:hover .glass-card::after {
+  opacity: 0;
 }
 
 .glass-card h1 {
@@ -186,9 +217,9 @@ body {
 
 .icon-btn:hover {
   transform: scale(1.1);
-  background: var(--synapse-pink);
+  background: linear-gradient(135deg, var(--synapse-pink), #e0448a);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(186, 45, 116, 0.3);
+  box-shadow: 0 6px 16px rgba(186, 45, 116, 0.4);
 }
 
 .icon-btn svg {

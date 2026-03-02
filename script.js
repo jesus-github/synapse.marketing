@@ -5,15 +5,8 @@
  * Handles slider, video player controls, playlist and transitions
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // List of videos found in directory
-    const videos = [
-        { src: 'Vídeos/Circo Romano MAM.mp4', title: 'Circo Romano MAM' },
-        { src: 'Vídeos/Mila Presentacion.mp4', title: 'Mila Presentacion' },
-        { src: 'Vídeos/Synapse Tours 01.mp4', title: 'Synapse Tours 01' },
-        { src: 'Vídeos/Templo de Diana - ES.mp4', title: 'Templo de Diana - ES' },
-        { src: 'Vídeos/Video Tours RRSS.mp4', title: 'Video Tours RRSS' },
-        { src: 'Vídeos/Viprés La Calzada.mp4', title: 'Viprés La Calzada' }
-    ];
+    // Dynamic list - to be fetched from backend
+    let videos = [];
 
     let currentIndex = 0;
     let videoElements = [];
@@ -46,7 +39,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Initializes the entire application
+     * Initializes the entire application after fetching videos
+     */
+    async function initApp() {
+        try {
+            const response = await fetch('videos.json');
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            videos = await response.json();
+
+            if (videos.length === 0) {
+                console.warn("No se encontraron vídeos en la carpeta.");
+                if (DOM.titleEl) DOM.titleEl.textContent = "Sin vídeos disponibles";
+                return;
+            }
+
+            init();
+        } catch (error) {
+            console.error("Error cargando la playlist dinámica:", error);
+            // Fallback content if everything fails
+            if (DOM.titleEl) DOM.titleEl.textContent = "Error de conexión";
+        }
+    }
+
+    /**
+     * Initializes the UI components
      */
     function init() {
         if (DOM.totalBadge) {
@@ -481,6 +498,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Execute app init
-    init();
+    // Execute dynamic app init
+    initApp();
 });

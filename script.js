@@ -122,102 +122,127 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateInfo();
 
-        // Simplified Intro Animation Sequence
-        window.addEventListener('load', () => {
-            const preloader = document.getElementById('preloader');
-            const introCta = document.getElementById('intro-cta');
-            const mainPlayCta = document.getElementById('main-play-cta');
+        // --- Preloader Logic (Min 2s + video load) ---
+        const preloader = document.getElementById('preloader');
+        const introCta = document.getElementById('intro-cta');
+        const mainPlayCta = document.getElementById('main-play-cta');
+        const minTime = 2000;
+        const startTime = Date.now();
 
-            // 1. Initial logo showcase
+        const finishLoading = () => {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, minTime - elapsed);
+
             setTimeout(() => {
-                // Fade out preloader
                 if (preloader) preloader.classList.add('fade-out');
+                // Revelar Intro CTA (Play Inicial)
+                if (introCta) introCta.classList.add('show');
+            }, remaining);
+        };
 
-                // 2. Unfold Sidebar (remove 'playing' class)
-                glassOverlay.classList.remove('playing');
-
-                // 3. Show Intro CTA (Pulsing Play Button + Text)
-                setTimeout(() => {
-                    if (introCta) introCta.classList.add('show');
-                }, 800);
-            }, 1800);
-
-            // Handle Intro CTA Click
-            if (mainPlayCta) {
-                mainPlayCta.addEventListener('click', () => {
-                    // Hide CTA
+        // Handle Intro CTA Click
+        if (mainPlayCta) {
+            mainPlayCta.addEventListener('click', () => {
+                // Ocultar CTA
+                if (introCta) {
                     introCta.classList.remove('show');
                     setTimeout(() => introCta.style.display = 'none', 1000);
+                }
 
-                    // Fold Sidebar and Start Video
-                    glassOverlay.classList.add('playing');
+                // Activar Audio (Unmute)
+                isMuted = false;
+                videoElements.forEach(v => v.muted = false);
 
-                    // Start Video
-                    const firstVideo = videoElements[currentIndex];
+                // Actualizar iconos de sonido en el panel
+                if (iconSound && iconMute) {
+                    iconMute.style.display = 'none';
+                    iconSound.style.display = 'block';
+                }
+
+                // Iniciar vídeo y plegar sidebar (el listener del video se encarga)
+                const firstVideo = videoElements[currentIndex];
+                if (firstVideo) {
                     firstVideo.play().then(() => {
                         iconPlay.style.display = 'none';
                         iconPause.style.display = 'block';
                     }).catch(e => console.log("Play failed on intro click:", e));
-                });
+                }
+            });
+        }
+
+        // Check if first video is ready
+        const firstVid = videoElements[0];
+        if (firstVid) {
+            if (firstVid.readyState >= 3) {
+                finishLoading();
+            } else {
+                firstVid.addEventListener('canplay', finishLoading, { once: true });
             }
-        });
+        } else {
+            // Fallback if no videos
+            window.addEventListener('load', finishLoading);
+        }
 
         // Initial State
         iconPause.style.display = 'none';
         iconPlay.style.display = 'block';
     }
 
-    // Main navigation function with crossfade
+    // Main navigation function with crossfade and curtain
     function goToVideo(index) {
         if (index === currentIndex || isTransitioning) return;
         isTransitioning = true;
 
-        // 1. Update state immediately to catch events correctly
+        const curtain = document.getElementById('transition-curtain');
         const currentVideoEl = videoElements[currentIndex];
         const nextVideoEl = videoElements[index];
         const oldIndex = currentIndex;
         currentIndex = index;
 
-        // 2. Force overlay to hide immediately when starting transition
-        glassOverlay.classList.add('playing');
+        // 1. Mostrar cortinilla
+        if (curtain) curtain.classList.add('active');
 
-        // 3. Play next video
-        nextVideoEl.currentTime = 0;
-        nextVideoEl.muted = isMuted;
-        const playPromise = nextVideoEl.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                iconPlay.style.display = 'none';
-                iconPause.style.display = 'block';
-            }).catch(e => console.log('Autoplay prevented on next video', e));
-        }
-
-        // 4. CSS Animations for slides
-        const slides = document.querySelectorAll('.slide');
-        slides[oldIndex].classList.remove('active');
-        slides[index].classList.add('active');
-
-        // 5. Update Playlist active state
-        const items = document.querySelectorAll('.playlist-item');
-        items[oldIndex].classList.remove('active');
-        items[index].classList.add('active');
-
-        // Scroll playlist to bring item into view
-        items[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        updateInfo();
-        progressFill.style.width = `0%`; // Reset progress visually
-
-        // 4. Cleanup old video after transition completes (wait 1.2s approx)
+        // 2. Esperar a que la cortinilla cubra (0.5s)
         setTimeout(() => {
-            currentVideoEl.pause();
-            currentVideoEl.currentTime = 0;
-            isTransitioning = false;
-        }, 1200);
+            // 3. Preparar y reproducir siguiente vídeo
+            nextVideoEl.currentTime = 0;
+            nextVideoEl.muted = isMuted;
+            const playPromise = nextVideoEl.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    iconPlay.style.display = 'none';
+                    iconPause.style.display = 'block';
+                }).catch(e => console.log('Autoplay prevented on next video', e));
+            }
 
-        // Ensure button states match
-        iconPlay.style.display = 'none';
-        iconPause.style.display = 'block';
+            // 4. Actualizar visualización slides
+            const slides = document.querySelectorAll('.slide');
+            slides[oldIndex].classList.remove('active');
+            slides[index].classList.add('active');
+
+            // 5. Actualizar Playlist
+            const items = document.querySelectorAll('.playlist-item');
+            if (items[oldIndex]) items[oldIndex].classList.remove('active');
+            if (items[index]) {
+                items[index].classList.add('active');
+                items[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            updateInfo();
+            progressFill.style.width = `0%`;
+            glassOverlay.classList.add('playing');
+
+            // 6. Ocultar cortinilla después de un breve momento de logo (total 1s aprox)
+            setTimeout(() => {
+                if (curtain) curtain.classList.remove('active');
+
+                // Limpieza video viejo
+                currentVideoEl.pause();
+                currentVideoEl.currentTime = 0;
+                isTransitioning = false;
+            }, 600);
+
+        }, 500);
     }
 
     function updateInfo() {

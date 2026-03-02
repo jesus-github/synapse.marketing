@@ -35,7 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         transitionCurtain: document.getElementById('transition-curtain'),
         preloader: document.getElementById('preloader'),
         introCta: document.getElementById('intro-cta'),
-        mainPlayCta: document.getElementById('main-play-cta')
+        mainPlayCta: document.getElementById('main-play-cta'),
+        contactBtn: document.getElementById('contact-btn'),
+        contactModal: document.getElementById('contact-modal'),
+        closeModal: document.getElementById('close-modal')
     };
 
     /**
@@ -74,11 +77,44 @@ document.addEventListener('DOMContentLoaded', () => {
         setupControls();
         setupPreloaderAndIntro();
         setupSidebarInteractions();
+        setupContactModal();
         updateInfo();
 
         // Initial Playback UI State
         DOM.iconPause.style.display = 'none';
         DOM.iconPlay.style.display = 'block';
+    }
+
+    /**
+     * Handles opening and closing of the contact modal
+     */
+    function setupContactModal() {
+        if (!DOM.contactBtn || !DOM.contactModal) return;
+
+        const openModal = () => {
+            DOM.contactModal.classList.add('active');
+            DOM.contactModal.setAttribute('aria-hidden', 'false');
+        };
+
+        const closeModal = () => {
+            DOM.contactModal.classList.remove('active');
+            DOM.contactModal.setAttribute('aria-hidden', 'true');
+        };
+
+        DOM.contactBtn.addEventListener('click', openModal);
+        if (DOM.closeModal) DOM.closeModal.addEventListener('click', closeModal);
+
+        // Close on clicking outside the card (on the overlay)
+        DOM.contactModal.addEventListener('click', (e) => {
+            if (e.target === DOM.contactModal) closeModal();
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && DOM.contactModal.classList.contains('active')) {
+                closeModal();
+            }
+        });
     }
 
     /**
@@ -88,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         videos.forEach((video, index) => {
             // Slide Container
             const slide = document.createElement('div');
-            slide.className = `slide ${index === 0 ? 'active' : ''}`;
+            slide.className = 'slide'; // Hidden by default (no 'active' class)
 
             // Ambient Canvas
             const canvas = document.createElement('canvas');
@@ -247,6 +283,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => DOM.introCta.style.display = 'none', 1000);
         }
 
+        // Activate first slide visibility now that we are starting
+        const initialSlide = DOM.sliderContainer.querySelectorAll('.slide')[currentIndex];
+        if (initialSlide) {
+            initialSlide.classList.add('active');
+        }
+
         isMuted = false;
         videoElements.forEach(v => v.muted = false);
 
@@ -348,6 +390,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupControls() {
         if (DOM.playBtn) {
             DOM.playBtn.addEventListener('click', () => {
+                // Ensure intro is dismissed if player play button is clicked
+                startExperience();
+
                 const vid = videoElements[currentIndex];
                 if (vid.paused) {
                     safePlay(vid);

@@ -9,11 +9,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100;
+  z-index: var(--z-curtain);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.5s ease, visibility 0.5s;
+  transition: opacity var(--transition-slow), visibility var(--transition-slow);
   pointer-events: none;
+  will-change: opacity, visibility;
 }
 
 #transition-curtain.active {
@@ -46,8 +47,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 9999;
+  z-index: var(--z-preloader);
   transition: opacity 0.8s ease, visibility 0.8s;
+  will-change: opacity, visibility;
 }
 
 #preloader.fade-out {
@@ -152,7 +154,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 50;
+  z-index: var(--z-intro);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -160,6 +162,7 @@
   visibility: hidden;
   transition: opacity 1s ease, visibility 1s;
   background: #fff;
+  will-change: opacity, visibility;
 }
 
 #intro-cta.show {
@@ -409,15 +412,29 @@
 
 /* Custom properties matching Synapse Corporate Identity */
 :root {
+  /* Colors */
   --synapse-pink: #BA2D74;
-  /* Matches design color from image */
   --synapse-dark: #333333;
   --glass-bg: rgba(255, 255, 255, 0.65);
   --glass-border: rgba(255, 255, 255, 0.8);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+  /* Performance & Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-spring: 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Z-Index Layers */
+  --z-base: 1;
+  --z-slides: 2;
+  --z-content: 5;
+  --z-intro: 50;
+  --z-ui: 60;
+  --z-curtain: 100;
+  --z-preloader: 9999;
+  --z-warning: 10000;
 }
-
-
 
 * {
   box-sizing: border-box;
@@ -457,7 +474,7 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 .slide {
@@ -474,13 +491,14 @@ body {
   transition: opacity 1s ease-in-out, transform 1.2s ease-out;
   transform: scale(1.03);
   pointer-events: none;
+  will-change: opacity, transform;
 }
 
 .slide.active {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
-  z-index: 2;
+  z-index: var(--z-slides);
 }
 
 .slide .ambient-canvas {
@@ -493,8 +511,9 @@ body {
   filter: blur(100px) brightness(2);
   /* Mayor desenfoque para suavizar el pixelado del canvas */
   opacity: 0.8;
-  z-index: 1;
+  z-index: var(--z-base);
   pointer-events: none;
+  will-change: filter;
 }
 
 .slide video.video-main {
@@ -503,7 +522,7 @@ body {
   height: 100%;
   object-fit: contain;
   /* Asegura que el vídeo se vea completo sin cortes */
-  z-index: 2;
+  z-index: var(--z-slides);
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
   /* Sombra para separar del fondo */
 }
@@ -515,12 +534,13 @@ body {
   bottom: 40px;
   left: -200px;
   /* Buffer de seguridad para el rebote */
-  z-index: 60;
+  z-index: var(--z-ui);
   display: flex;
   flex-direction: column;
   width: 620px;
   /* Reverted to 420px visible + 200px buffer for desktop */
-  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity 0.5s ease, transform var(--transition-spring);
+  will-change: transform, opacity;
 }
 
 /* Ocultar parcialmente mientras se reproduce el vídeo */
@@ -607,7 +627,6 @@ body {
 
 
 
-/* Botón sutil y elegante para plegar/desplegar la lengüeta */
 .sidebar-handle {
   position: absolute;
   top: 50%;
@@ -623,7 +642,7 @@ body {
   align-items: center;
   padding: 0;
   z-index: 10;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
 .handle-arrow {
@@ -632,8 +651,9 @@ body {
   height: 48px;
   fill: var(--synapse-pink);
   opacity: 0.6;
-  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all var(--transition-spring);
   filter: drop-shadow(0 0 8px rgba(255, 30, 86, 0.3));
+  will-change: transform, opacity;
 }
 
 .sidebar-handle:hover .handle-arrow {
@@ -726,7 +746,7 @@ body {
   align-items: center;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: all var(--transition-fast);
   color: var(--synapse-pink);
 }
 
@@ -981,7 +1001,8 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 1000;
+  z-index: var(--z-warning);
+  /* Higher than preloader (9999) to be visible immediately */
   background: #fff;
   /* Fondo claro corporativo */
   display: flex;
@@ -994,7 +1015,8 @@ body {
   padding: 40px;
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--transition-slow);
+  will-change: opacity, visibility;
 }
 
 .warning-content {

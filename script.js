@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Video Presentation Logic
  * Handles slider, video player controls, playlist and transitions
@@ -14,43 +16,69 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let currentIndex = 0;
-    const sliderContainer = document.getElementById('slider');
-    const playlistContainer = document.getElementById('playlist-container');
-    const titleEl = document.getElementById('video-title');
-    const currentIndexEl = document.getElementById('current-index');
-    document.querySelector('.total-badge').textContent = `/ ${String(videos.length).padStart(2, '0')}`;
-
-    const playBtn = document.getElementById('play-btn');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const muteBtn = document.getElementById('mute-btn');
-
-    const iconPlay = document.getElementById('icon-play');
-    const iconPause = document.getElementById('icon-pause');
-    const iconSound = document.getElementById('icon-sound');
-    const iconMute = document.getElementById('icon-mute');
-
-    const progressFill = document.getElementById('progress-fill');
-    const progressContainer = document.getElementById('progress-container');
-    const glassOverlay = document.querySelector('.glass-overlay');
-
     let videoElements = [];
     let isMuted = true; // Auto-play policies require mute by default
     let isTransitioning = false;
 
-    // Initialize UI
+    // DOM Elements Cache
+    const DOM = {
+        sliderContainer: document.getElementById('slider'),
+        playlistContainer: document.getElementById('playlist-container'),
+        titleEl: document.getElementById('video-title'),
+        currentIndexEl: document.getElementById('current-index'),
+        totalBadge: document.querySelector('.total-badge'),
+        playBtn: document.getElementById('play-btn'),
+        prevBtn: document.getElementById('prev-btn'),
+        nextBtn: document.getElementById('next-btn'),
+        muteBtn: document.getElementById('mute-btn'),
+        iconPlay: document.getElementById('icon-play'),
+        iconPause: document.getElementById('icon-pause'),
+        iconSound: document.getElementById('icon-sound'),
+        iconMute: document.getElementById('icon-mute'),
+        progressFill: document.getElementById('progress-fill'),
+        progressContainer: document.getElementById('progress-container'),
+        glassOverlay: document.querySelector('.glass-overlay'),
+        sidebarToggle: document.getElementById('sidebar-toggle'),
+        transitionCurtain: document.getElementById('transition-curtain'),
+        preloader: document.getElementById('preloader'),
+        introCta: document.getElementById('intro-cta'),
+        mainPlayCta: document.getElementById('main-play-cta')
+    };
+
+    /**
+     * Initializes the entire application
+     */
     function init() {
+        if (DOM.totalBadge) {
+            DOM.totalBadge.textContent = `/ ${String(videos.length).padStart(2, '0')}`;
+        }
+
+        setupVideosAndPlaylist();
+        setupControls();
+        setupPreloaderAndIntro();
+        setupSidebarInteractions();
+        updateInfo();
+
+        // Initial Playback UI State
+        DOM.iconPause.style.display = 'none';
+        DOM.iconPlay.style.display = 'block';
+    }
+
+    /**
+     * Creates DOM elements for videos, canvasses, and playlist
+     */
+    function setupVideosAndPlaylist() {
         videos.forEach((video, index) => {
-            // Create full-screen slide
+            // Slide Container
             const slide = document.createElement('div');
             slide.className = `slide ${index === 0 ? 'active' : ''}`;
 
-            // Canvas for Ambient background (blurred)
+            // Ambient Canvas
             const canvas = document.createElement('canvas');
             canvas.className = 'ambient-canvas';
             const ctx = canvas.getContext('2d', { alpha: false });
 
-            // Main video
+            // Video Element
             const vidEl = document.createElement('video');
             vidEl.className = 'video-main';
             vidEl.src = video.src;
@@ -61,166 +89,202 @@ document.addEventListener('DOMContentLoaded', () => {
 
             slide.appendChild(canvas);
             slide.appendChild(vidEl);
-            sliderContainer.appendChild(slide);
+            DOM.sliderContainer.appendChild(slide);
             videoElements.push(vidEl);
 
-            // Optimization: Update canvas only when playing
-            let animationId;
-            const updateCanvas = () => {
-                if (vidEl.paused || vidEl.ended) return;
-                // Draw at very low res for maximum performance
-                ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height);
-                animationId = requestAnimationFrame(updateCanvas);
-            };
-
-            vidEl.addEventListener('play', () => {
-                canvas.width = 32; canvas.height = 32; // Small size = fast draw
-                updateCanvas();
-            });
-            vidEl.addEventListener('pause', () => cancelAnimationFrame(animationId));
-            vidEl.addEventListener('seeked', () => ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height));
-
-            // Create playlist item
-            const plItem = document.createElement('div');
-            plItem.className = `playlist-item ${index === 0 ? 'active' : ''}`;
-            plItem.innerHTML = `<span class="playlist-item-index">${String(index + 1).padStart(2, '0')}</span> ${video.title}`;
-            plItem.addEventListener('click', () => {
-                if (!isTransitioning) {
-                    glassOverlay.classList.add('playing'); // Ocultar lengüeta al elegir vídeo
-                    goToVideo(index);
-                }
-            });
-            playlistContainer.appendChild(plItem);
-
-            // Ensure playlist is visible by default
-            playlistContainer.classList.add('active');
-
-            // Update Progress bar based on current video
-            vidEl.addEventListener('timeupdate', () => {
-                if (index === currentIndex) {
-                    const progress = (vidEl.currentTime / vidEl.duration) * 100;
-                    progressFill.style.width = `${progress}%`;
-                }
-            });
-
-            // Toggle 'playing' class on overlay
-            vidEl.addEventListener('play', () => {
-                if (index === currentIndex) glassOverlay.classList.add('playing');
-            });
-
-            vidEl.addEventListener('pause', () => {
-                if (index === currentIndex) glassOverlay.classList.remove('playing');
-            });
-
-            // Automatically go to next video when ended
-            vidEl.addEventListener('ended', () => {
-                if (index === currentIndex) {
-                    goToVideo((currentIndex + 1) % videos.length);
-                }
-            });
+            setupVideoCanvasOptimization(vidEl, canvas, ctx);
+            setupVideoEvents(vidEl, index);
+            createPlaylistItem(video, index);
         });
 
-        updateInfo();
+        if (DOM.playlistContainer) {
+            DOM.playlistContainer.classList.add('active');
+        }
+    }
 
-        // --- Preloader Logic (Min 2s + video load) ---
-        const preloader = document.getElementById('preloader');
-        const introCta = document.getElementById('intro-cta');
-        const mainPlayCta = document.getElementById('main-play-cta');
+    /**
+     * Handles canvas redrawing strictly when video is playing for max performance
+     */
+    function setupVideoCanvasOptimization(vidEl, canvas, ctx) {
+        let animationId;
+        const updateCanvas = () => {
+            if (vidEl.paused || vidEl.ended) return;
+            // Draw at low res for maximum performance and blur effect
+            ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height);
+            animationId = requestAnimationFrame(updateCanvas);
+        };
+
+        vidEl.addEventListener('play', () => {
+            canvas.width = 32;
+            canvas.height = 32;
+            updateCanvas();
+        });
+        vidEl.addEventListener('pause', () => cancelAnimationFrame(animationId));
+        vidEl.addEventListener('seeked', () => ctx.drawImage(vidEl, 0, 0, canvas.width, canvas.height));
+    }
+
+    /**
+     * Attaches necessary events to individual video elements
+     */
+    function setupVideoEvents(vidEl, index) {
+        // Progress bar updates
+        vidEl.addEventListener('timeupdate', () => {
+            if (index === currentIndex && DOM.progressFill) {
+                const progress = (vidEl.currentTime / vidEl.duration) * 100;
+                DOM.progressFill.style.width = `${progress}%`;
+            }
+        });
+
+        // Hide overlay sidebar while playing (only for current video)
+        vidEl.addEventListener('play', () => {
+            if (index === currentIndex) DOM.glassOverlay.classList.add('playing');
+        });
+
+        // Show overlay sidebar on pause
+        vidEl.addEventListener('pause', () => {
+            if (index === currentIndex) DOM.glassOverlay.classList.remove('playing');
+        });
+
+        // Auto advance
+        vidEl.addEventListener('ended', () => {
+            if (index === currentIndex) {
+                goToVideo((currentIndex + 1) % videos.length);
+            }
+        });
+    }
+
+    /**
+     * Generates an item in the playlist
+     */
+    function createPlaylistItem(video, index) {
+        if (!DOM.playlistContainer) return;
+
+        const plItem = document.createElement('div');
+        plItem.className = `playlist-item ${index === 0 ? 'active' : ''}`;
+        plItem.innerHTML = `<span class="playlist-item-index">${String(index + 1).padStart(2, '0')}</span> ${video.title}`;
+
+        plItem.addEventListener('click', () => {
+            if (!isTransitioning) {
+                startExperience(); // Ensure intro is removed
+                DOM.glassOverlay.classList.add('playing');
+                goToVideo(index);
+            }
+        });
+        DOM.playlistContainer.appendChild(plItem);
+    }
+
+    /**
+     * Manages preloader hide delays and intro screen
+     */
+    function setupPreloaderAndIntro() {
         const minTime = 2000;
         const startTime = Date.now();
 
         const finishLoading = () => {
+            if (!DOM.preloader || DOM.preloader.classList.contains('fade-out')) return;
+
             const elapsed = Date.now() - startTime;
             const remaining = Math.max(0, minTime - elapsed);
 
             setTimeout(() => {
-                if (preloader) preloader.classList.add('fade-out');
-                // Revelar Intro CTA (Play Inicial)
-                if (introCta) introCta.classList.add('show');
+                DOM.preloader.classList.add('fade-out');
+                if (DOM.introCta) DOM.introCta.classList.add('show');
             }, remaining);
         };
 
-        // Handle Intro CTA Click
-        if (mainPlayCta) {
-            mainPlayCta.addEventListener('click', () => {
-                // Ocultar CTA
-                if (introCta) {
-                    introCta.classList.remove('show');
-                    setTimeout(() => introCta.style.display = 'none', 1000);
-                }
+        // Safety timeout
+        setTimeout(finishLoading, 5000);
 
-                // Activar Audio (Unmute)
-                isMuted = false;
-                videoElements.forEach(v => v.muted = false);
-
-                // Actualizar iconos de sonido en el panel
-                if (iconSound && iconMute) {
-                    iconMute.style.display = 'none';
-                    iconSound.style.display = 'block';
-                }
-
-                // Iniciar vídeo y plegar sidebar (el listener del video se encarga)
-                const firstVideo = videoElements[currentIndex];
-                if (firstVideo) {
-                    firstVideo.play().then(() => {
-                        iconPlay.style.display = 'none';
-                        iconPause.style.display = 'block';
-                    }).catch(e => console.log("Play failed on intro click:", e));
-                }
-            });
-        }
-
-        // Check if first video is ready
+        // Preload checks using first video
         const firstVid = videoElements[0];
         if (firstVid) {
             if (firstVid.readyState >= 3) {
                 finishLoading();
             } else {
                 firstVid.addEventListener('canplay', finishLoading, { once: true });
+                firstVid.addEventListener('loadedmetadata', finishLoading, { once: true });
+                firstVid.addEventListener('canplaythrough', finishLoading, { once: true });
             }
-        } else {
-            // Fallback if no videos
-            window.addEventListener('load', finishLoading);
         }
 
-        // Initial State
-        iconPause.style.display = 'none';
-        iconPlay.style.display = 'block';
+        window.addEventListener('load', finishLoading);
+
+        // Main CTA Click to begin experience
+        if (DOM.mainPlayCta) {
+            DOM.mainPlayCta.addEventListener('click', () => {
+                startExperience();
+                const currentVid = videoElements[currentIndex];
+                if (currentVid) {
+                    safePlay(currentVid);
+                }
+            });
+        }
     }
 
-    // Main navigation function with crossfade and curtain
+    /**
+     * Unified logic for user beginning the experience, ensuring unmuting
+     */
+    function startExperience() {
+        if (DOM.introCta && DOM.introCta.classList.contains('show')) {
+            DOM.introCta.classList.remove('show');
+            setTimeout(() => DOM.introCta.style.display = 'none', 1000);
+        }
+
+        isMuted = false;
+        videoElements.forEach(v => v.muted = false);
+
+        if (DOM.iconSound && DOM.iconMute) {
+            DOM.iconMute.style.display = 'none';
+            DOM.iconSound.style.display = 'block';
+        }
+    }
+
+    /**
+     * Safely attempts to play video and catches PlayPolicy promises
+     */
+    function safePlay(videoElement) {
+        const playPromise = videoElement.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                DOM.iconPlay.style.display = 'none';
+                DOM.iconPause.style.display = 'block';
+            }).catch(e => {
+                console.warn("Autoplay prevented:", e.message);
+                // Revert to paused UI state if interrupted
+                DOM.iconPause.style.display = 'none';
+                DOM.iconPlay.style.display = 'block';
+                DOM.glassOverlay.classList.remove('playing');
+            });
+        }
+    }
+
+    /**
+     * Crossfade and Curtain Navigation
+     */
     function goToVideo(index) {
         if (index === currentIndex || isTransitioning) return;
         isTransitioning = true;
 
-        const curtain = document.getElementById('transition-curtain');
         const currentVideoEl = videoElements[currentIndex];
         const nextVideoEl = videoElements[index];
         const oldIndex = currentIndex;
         currentIndex = index;
 
-        // 1. Mostrar cortinilla
-        if (curtain) curtain.classList.add('active');
+        // Show curtain
+        if (DOM.transitionCurtain) DOM.transitionCurtain.classList.add('active');
 
-        // 2. Esperar a que la cortinilla cubra (0.5s)
         setTimeout(() => {
-            // 3. Preparar y reproducir siguiente vídeo
+            // Prep next video
             nextVideoEl.currentTime = 0;
             nextVideoEl.muted = isMuted;
-            const playPromise = nextVideoEl.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    iconPlay.style.display = 'none';
-                    iconPause.style.display = 'block';
-                }).catch(e => console.log('Autoplay prevented on next video', e));
-            }
+            safePlay(nextVideoEl);
 
-            // 4. Actualizar visualización slides
+            // Update slide visibility
             const slides = document.querySelectorAll('.slide');
-            slides[oldIndex].classList.remove('active');
-            slides[index].classList.add('active');
+            if (slides[oldIndex]) slides[oldIndex].classList.remove('active');
+            if (slides[index]) slides[index].classList.add('active');
 
-            // 5. Actualizar Playlist
+            // Update playlist styles
             const items = document.querySelectorAll('.playlist-item');
             if (items[oldIndex]) items[oldIndex].classList.remove('active');
             if (items[index]) {
@@ -229,172 +293,194 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             updateInfo();
-            progressFill.style.width = `0%`;
-            glassOverlay.classList.add('playing');
+            if (DOM.progressFill) DOM.progressFill.style.width = `0%`;
+            if (DOM.glassOverlay) DOM.glassOverlay.classList.add('playing');
 
-            // 6. Ocultar cortinilla después de un breve momento de logo (total 1s aprox)
+            // Hide curtain
             setTimeout(() => {
-                if (curtain) curtain.classList.remove('active');
-
-                // Limpieza video viejo
-                currentVideoEl.pause();
-                currentVideoEl.currentTime = 0;
+                if (DOM.transitionCurtain) DOM.transitionCurtain.classList.remove('active');
+                if (currentVideoEl) {
+                    currentVideoEl.pause();
+                    currentVideoEl.currentTime = 0;
+                }
                 isTransitioning = false;
             }, 600);
 
         }, 500);
     }
 
+    /**
+     * Updates textual player info (Title and Index)
+     */
     function updateInfo() {
-        titleEl.textContent = videos[currentIndex].title;
-        // animate text swap
-        titleEl.style.opacity = 0;
-        setTimeout(() => {
-            titleEl.textContent = videos[currentIndex].title;
-            titleEl.style.opacity = 1;
-        }, 300);
-
-        currentIndexEl.textContent = String(currentIndex + 1).padStart(2, '0');
+        if (DOM.titleEl) {
+            DOM.titleEl.style.opacity = 0;
+            setTimeout(() => {
+                DOM.titleEl.textContent = videos[currentIndex].title;
+                DOM.titleEl.style.opacity = 1;
+            }, 300);
+        }
+        if (DOM.currentIndexEl) {
+            DOM.currentIndexEl.textContent = String(currentIndex + 1).padStart(2, '0');
+        }
     }
 
-    // --- Controls Events ---
-
-    // Toggle Play / Pause
-    playBtn.addEventListener('click', () => {
-        const vid = videoElements[currentIndex];
-        if (vid.paused) {
-            vid.play();
-            glassOverlay.classList.add('playing');
-            iconPlay.style.display = 'none';
-            iconPause.style.display = 'block';
-        } else {
-            vid.pause();
-            glassOverlay.classList.remove('playing');
-            iconPause.style.display = 'none';
-            iconPlay.style.display = 'block';
+    /**
+     * Setup Main Control Events (Play/Next/Mute/Progress)
+     */
+    function setupControls() {
+        if (DOM.playBtn) {
+            DOM.playBtn.addEventListener('click', () => {
+                const vid = videoElements[currentIndex];
+                if (vid.paused) {
+                    safePlay(vid);
+                    DOM.glassOverlay.classList.add('playing');
+                } else {
+                    vid.pause();
+                    DOM.glassOverlay.classList.remove('playing');
+                    DOM.iconPause.style.display = 'none';
+                    DOM.iconPlay.style.display = 'block';
+                }
+            });
         }
-    });
 
-    // Toggle Mute
-    muteBtn.addEventListener('click', () => {
-        isMuted = !isMuted;
-        videoElements.forEach(v => v.muted = isMuted);
-
-        if (isMuted) {
-            iconSound.style.display = 'none';
-            iconMute.style.display = 'block';
-        } else {
-            iconMute.style.display = 'none';
-            iconSound.style.display = 'block';
+        if (DOM.muteBtn) {
+            DOM.muteBtn.addEventListener('click', () => {
+                isMuted = !isMuted;
+                videoElements.forEach(v => v.muted = isMuted);
+                if (isMuted) {
+                    DOM.iconSound.style.display = 'none';
+                    DOM.iconMute.style.display = 'block';
+                } else {
+                    DOM.iconMute.style.display = 'none';
+                    DOM.iconSound.style.display = 'block';
+                }
+            });
         }
-    });
 
-    // Next / Prev buttons
-    nextBtn.addEventListener('click', () => {
-        if (!isTransitioning) goToVideo((currentIndex + 1) % videos.length);
-    });
-
-    prevBtn.addEventListener('click', () => {
-        if (!isTransitioning) goToVideo((currentIndex - 1 + videos.length) % videos.length);
-    });
-
-    // Progress bar seek
-    progressContainer.addEventListener('click', (e) => {
-        const rect = progressContainer.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        const vid = videoElements[currentIndex];
-        vid.currentTime = pos * vid.duration;
-    });
-
-    // Keyboard support
-    document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-            e.preventDefault(); // prevent scroll
-            playBtn.click();
-        } else if (e.code === 'ArrowRight') {
-            nextBtn.click();
-        } else if (e.code === 'ArrowLeft') {
-            prevBtn.click();
+        if (DOM.nextBtn) {
+            DOM.nextBtn.addEventListener('click', () => {
+                if (!isTransitioning) goToVideo((currentIndex + 1) % videos.length);
+            });
         }
-    });
 
-    // Start everything
-    init();
+        if (DOM.prevBtn) {
+            DOM.prevBtn.addEventListener('click', () => {
+                if (!isTransitioning) goToVideo((currentIndex - 1 + videos.length) % videos.length);
+            });
+        }
 
-    // Toggle Sidebar via Handle
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    sidebarToggle.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evitar que el click se propague al panel
-        glassOverlay.classList.toggle('playing');
-        glassOverlay.style.transform = ''; // Reset transform si venía de un arrastre
-    });
+        if (DOM.progressContainer) {
+            DOM.progressContainer.addEventListener('click', (e) => {
+                const rect = DOM.progressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                const vid = videoElements[currentIndex];
+                if (vid) vid.currentTime = pos * vid.duration;
+            });
+        }
 
-    // --- Touch & Swipe Interactions for Sidebar UX ---
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let isDragging = false;
-    let startTranslate = 0;
-
-    glassOverlay.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        isDragging = true;
-
-        // Desactivar transiciones durante el arrastre para respuesta inmediata
-        glassOverlay.style.transition = 'none';
-
-        // Obtener la posición actual
-        const style = window.getComputedStyle(glassOverlay);
-        const matrix = new WebKitCSSMatrix(style.transform);
-        startTranslate = matrix.m41; // Valor de translateX
-    }, { passive: true });
-
-    glassOverlay.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-
-        const deltaX = e.touches[0].clientX - touchStartX;
-        const deltaY = e.touches[0].clientY - touchStartY;
-
-        // Priorizar scroll vertical sobre horizontal si es muy pronunciado
-        if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) return;
-
-        let newTranslate = startTranslate + deltaX;
-
-        // Limitar el arrastre para que no se salga de los bordes
-        if (newTranslate > 0) newTranslate = newTranslate * 0.2; // Efecto goma
-
-        glassOverlay.style.transform = `translateX(${newTranslate}px)`;
-    }, { passive: true });
-
-    glassOverlay.addEventListener('touchend', (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-
-        const touchEndX = e.changedTouches[0].clientX;
-        const deltaX = touchEndX - touchStartX;
-
-        // Restaurar transiciones
-        glassOverlay.style.transition = '';
-
-        // Lógica de "Snap" profesional
-        const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-
-        if (Math.abs(deltaX) > 50) { // Si el swipe es significativo
-            if (deltaX > 0) {
-                // Hacia la derecha: Abrir
-                glassOverlay.classList.remove('playing');
-                glassOverlay.style.transform = '';
-            } else {
-                // Hacia la izquierda: Cerrar
-                glassOverlay.classList.add('playing');
-                glassOverlay.style.transform = '';
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (DOM.playBtn) DOM.playBtn.click();
+            } else if (e.code === 'ArrowRight') {
+                if (DOM.nextBtn) DOM.nextBtn.click();
+            } else if (e.code === 'ArrowLeft') {
+                if (DOM.prevBtn) DOM.prevBtn.click();
             }
-        } else {
-            // Si el movimiento es pequeño, volver al estado original según la clase actual
-            glassOverlay.style.transform = '';
-        }
-    });
+        });
 
-    // Fade-in animation for title on update
-    titleEl.style.transition = 'opacity 0.3s ease';
+        if (DOM.titleEl) {
+            DOM.titleEl.style.transition = 'opacity 0.3s ease';
+        }
+    }
+
+    /**
+     * Handlers for Mobile Swipe & Toggle of Sidebar Overlay
+     */
+    function setupSidebarInteractions() {
+        if (!DOM.sidebarToggle || !DOM.glassOverlay) return;
+
+        const handleToggle = (e) => {
+            if (e) {
+                e.stopPropagation();
+                if (e.type === 'touchstart') e.preventDefault();
+            }
+            DOM.glassOverlay.classList.toggle('playing');
+            DOM.glassOverlay.style.transform = '';
+        };
+
+        DOM.sidebarToggle.addEventListener('click', handleToggle);
+        DOM.sidebarToggle.addEventListener('touchstart', handleToggle, { passive: false });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isDragging = false;
+        let startTranslate = 0;
+
+        DOM.glassOverlay.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#sidebar-toggle')) {
+                isDragging = false;
+                return;
+            }
+
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isDragging = true;
+
+            DOM.glassOverlay.style.transition = 'none';
+
+            const style = window.getComputedStyle(DOM.glassOverlay);
+            let matrix;
+            if (window.WebKitCSSMatrix) {
+                matrix = new window.WebKitCSSMatrix(style.transform);
+            } else {
+                const transform = style.transform || style.webkitTransform;
+                const match = transform.match(/matrix\((.+)\)/);
+                const values = match ? match[1].split(', ') : [0, 0, 0, 0, 0, 0];
+                matrix = { m41: parseFloat(values[4]) || 0 };
+            }
+            startTranslate = matrix.m41 || 0;
+        }, { passive: true });
+
+        DOM.glassOverlay.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.touches[0].clientX - touchStartX;
+            const deltaY = e.touches[0].clientY - touchStartY;
+
+            if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) return;
+
+            let newTranslate = startTranslate + deltaX;
+
+            if (newTranslate > 0) newTranslate = newTranslate * 0.2;
+
+            DOM.glassOverlay.style.transform = `translateX(${newTranslate}px)`;
+        }, { passive: true });
+
+        DOM.glassOverlay.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const touchEndX = e.changedTouches[0].clientX;
+            const deltaX = touchEndX - touchStartX;
+
+            DOM.glassOverlay.style.transition = '';
+
+            if (Math.abs(deltaX) > 50) {
+                if (deltaX > 0) {
+                    DOM.glassOverlay.classList.remove('playing');
+                    DOM.glassOverlay.style.transform = '';
+                } else {
+                    DOM.glassOverlay.classList.add('playing');
+                    DOM.glassOverlay.style.transform = '';
+                }
+            } else {
+                DOM.glassOverlay.style.transform = '';
+            }
+        });
+    }
+
+    // Execute app init
+    init();
 });

@@ -134,11 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Video Element
             const vidEl = document.createElement('video');
             vidEl.className = 'video-main';
-            vidEl.src = video.src;
+            vidEl.dataset.src = video.src;
+            if (index === 0) {
+                vidEl.src = video.src;
+                vidEl.preload = 'auto'; // Load first video right away
+            } else {
+                vidEl.preload = 'none'; // Lazy load the others
+            }
             vidEl.loop = false;
             vidEl.muted = isMuted;
             vidEl.playsInline = true;
-            vidEl.preload = index < 2 ? 'auto' : 'metadata';
 
             slide.appendChild(canvas);
             slide.appendChild(vidEl);
@@ -152,6 +157,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (DOM.playlistContainer) {
             DOM.playlistContainer.classList.add('active');
+        }
+    }
+
+    /**
+     * Carga el vídeo bajo demanda (Lazy Loading)
+     */
+    function preloadVideo(idx) {
+        if (idx >= 0 && idx < videoElements.length) {
+            const el = videoElements[idx];
+            if (!el.getAttribute('src')) {
+                el.setAttribute('src', el.dataset.src);
+                el.preload = 'auto';
+                el.load(); // Iniciar descarga
+            }
         }
     }
 
@@ -190,7 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide overlay sidebar while playing (only for current video)
         vidEl.addEventListener('play', () => {
-            if (index === currentIndex) DOM.glassOverlay.classList.add('playing');
+            if (index === currentIndex) {
+                DOM.glassOverlay.classList.add('playing');
+                // Preload the next video in sequence to prevent buffering
+                preloadVideo((currentIndex + 1) % videos.length);
+            }
         });
 
         // Show overlay sidebar on pause
@@ -256,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 firstVid.addEventListener('canplay', finishLoading, { once: true });
                 firstVid.addEventListener('loadedmetadata', finishLoading, { once: true });
-                firstVid.addEventListener('canplaythrough', finishLoading, { once: true });
             }
         }
 
@@ -333,8 +355,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.transitionCurtain) DOM.transitionCurtain.classList.add('active');
 
         setTimeout(() => {
+            // Ensure target video is preloaded
+            preloadVideo(index);
+
             // Prep next video
-            nextVideoEl.currentTime = 0;
+            if (nextVideoEl.readyState > 0) {
+                nextVideoEl.currentTime = 0;
+            }
             nextVideoEl.muted = isMuted;
             safePlay(nextVideoEl);
 
